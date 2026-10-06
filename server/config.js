@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import "dotenv/config";
 
 function num(value, fallback) {
   const parsed = Number(value);
@@ -6,7 +6,7 @@ function num(value, fallback) {
 }
 
 function str(value, fallback) {
-  const text = String(value ?? '').trim();
+  const text = String(value ?? "").trim();
   return text || fallback;
 }
 
@@ -14,16 +14,22 @@ export const config = {
   port: num(process.env.PORT, 3001),
 
   llm: {
-    apiKey: str(process.env.LLM_API_KEY, ''),
-    baseUrl: str(process.env.LLM_BASE_URL, 'https://api.openai.com/v1').replace(/\/+$/, ''),
-    model: str(process.env.LLM_MODEL, 'gpt-4o-mini'),
+    apiKey: str(process.env.LLM_API_KEY, ""),
+    baseUrl: str(
+      process.env.LLM_BASE_URL,
+      "https://api.deepseek.com/v1",
+    ).replace(/\/+$/, ""),
+    model: str(process.env.LLM_MODEL, "deepseek-chat"),
     timeoutMs: num(process.env.LLM_TIMEOUT_MS, 45000),
   },
 
   maps: {
-    apiKey: str(process.env.MAPS_API_KEY, ''),
-    provider: str(process.env.MAPS_PROVIDER, 'openrouteservice').toLowerCase(),
-    baseUrl: str(process.env.MAPS_BASE_URL, 'https://api.openrouteservice.org').replace(/\/+$/, ''),
+    apiKey: str(process.env.MAPS_API_KEY, ""),
+    provider: str(process.env.MAPS_PROVIDER, "openrouteservice").toLowerCase(),
+    baseUrl: str(
+      process.env.MAPS_BASE_URL,
+      "https://api.openrouteservice.org",
+    ).replace(/\/+$/, ""),
     timeoutMs: num(process.env.MAPS_TIMEOUT_MS, 15000),
     mockCenter: {
       lat: num(process.env.MOCK_CENTER_LAT, 40.4168),

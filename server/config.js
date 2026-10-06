@@ -24,7 +24,10 @@ export const config = {
   },
 
   maps: {
-    apiKey: str(process.env.MAPS_API_KEY, ""),
+    apiKey: str(
+      process.env.MAPS_API_KEY,
+      "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjEwZGZiMTBhNTcwYjRkZmQ4MTYyNzE2MjBlYWZhZjFjIiwiaCI6Im11cm11cjY0In0=",
+    ),
     provider: str(process.env.MAPS_PROVIDER, "openrouteservice").toLowerCase(),
     baseUrl: str(
       process.env.MAPS_BASE_URL,

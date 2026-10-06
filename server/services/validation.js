@@ -59,7 +59,12 @@ function parseEndpoint(raw, field, errors) {
 }
 
 function normalizePreferences(raw, errors) {
-  const preferences = { city: '', pace: 'normal', interests: [] };
+  const preferences = {
+    city: '',
+    pace: 'normal',
+    interests: [],
+    transportMode: 'walking',
+  };
   if (raw === undefined || raw === null) return preferences;
 
   if (typeof raw !== 'object' || Array.isArray(raw)) {
@@ -74,6 +79,15 @@ function normalizePreferences(raw, errors) {
     if (['relajado', 'normal', 'intenso'].includes(pace)) preferences.pace = pace;
     else if (['relaxed', 'normal', 'intense'].includes(pace)) {
       preferences.pace = { relaxed: 'relajado', intense: 'intenso' }[pace] ?? 'normal';
+    }
+  }
+
+  if (typeof raw.transportMode === 'string' && raw.transportMode.trim()) {
+    const transportMode = normalizeText(raw.transportMode);
+    if (['walking', 'transit', 'mixed'].includes(transportMode)) {
+      preferences.transportMode = transportMode;
+    } else {
+      errors.push('"preferences.transportMode" debe ser walking, transit o mixed.');
     }
   }
 

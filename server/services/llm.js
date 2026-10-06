@@ -45,6 +45,7 @@ function normalizeRestaurants(list, limit) {
         ? item.mealTypes.filter((type) => typeof type === 'string' && type.trim()).map((type) => type.trim())
         : [],
       why: String(item.why ?? '').trim().slice(0, 200),
+      estimatedCost: clampNumber(item.estimatedCost, 0, 1000, null),
     });
     if (result.length >= limit) break;
   }
@@ -68,6 +69,9 @@ function buildPrompt({ city, dateLabel, windowLabel, keyLocations, meals, prefer
     ? meals.map((meal) => `${meal.type} a las ${new Date(meal.time).toISOString().slice(11, 16)}`).join(', ')
     : 'sin comidas planificadas';
   const interests = preferences.interests.length ? preferences.interests.join(', ') : 'no especificados';
+  const foodBudgetText = preferences.foodBudget !== undefined && preferences.foodBudget !== null
+    ? `${preferences.foodBudget} EUR`
+    : 'sin restricción';
 
   return [
     'Eres un asistente experto en planificación de rutas urbanas a pie.',
@@ -76,12 +80,13 @@ function buildPrompt({ city, dateLabel, windowLabel, keyLocations, meals, prefer
     `Paradas obligatorias que YA están en la ruta (no las repitas): ${required}.`,
     `Comidas solicitadas: ${mealsText}.`,
     `Intereses del usuario: ${interests}. Ritmo deseado: ${preferences.pace}.`,
+    `Presupuesto para comidas: ${foodBudgetText}.`,
     '',
     'Propón actividades y restaurantes reales y bien ubicados dentro de la ciudad.',
     'Devuelve EXCLUSIVAMENTE un JSON con esta forma exacta:',
-    '{"places":[{"name":"...","address":"...","category":"museo|parque|mirador|mercado|barrio|monumento|galeria|cafe|compras","visitMinutes":60,"why":"motivo breve"}],"restaurants":[{"name":"...","address":"...","cuisine":"...","mealTypes":["almuerzo"],"why":"motivo breve"}]}',
+    '{"places":[{"name":"...","address":"...","category":"museo|parque|mirador|mercado|barrio|monumento|galeria|cafe|compras","visitMinutes":60,"why":"motivo breve"}],"restaurants":[{"name":"...","address":"...","cuisine":"...","mealTypes":["almuerzo"],"estimatedCost":30,"why":"motivo breve"}]}',
     '',
-    `Reglas: máximo ${limit} lugares, máximo 4 restaurantes, "visitMinutes" entre 20 y 180,`,
+    `Reglas: máximo ${limit} lugares, máximo 4 restaurantes, "visitMinutes" entre 20 y 180, "estimatedCost" entre 5 y 200,`,
     'direcciones dentro de la ciudad indicada, textos en español, sin texto fuera del JSON.',
   ].join('\n');
 }
@@ -177,6 +182,7 @@ function mockSuggestions({ city, keyLocations, limit }) {
       cuisine: 'cocina local',
       mealTypes: ['almuerzo', 'comida', 'cena'],
       why: 'Menú del día casero y precio medio.',
+      estimatedCost: 20,
     },
     {
       name: `Bistró Central (${label})`,
@@ -184,6 +190,7 @@ function mockSuggestions({ city, keyLocations, limit }) {
       cuisine: 'cocina de mercado',
       mealTypes: ['almuerzo', 'comida', 'cena'],
       why: 'Cocina de temporada a pocos minutos de los museos.',
+      estimatedCost: 25,
     },
     {
       name: `Café del Paseo (${label})`,
@@ -191,6 +198,7 @@ function mockSuggestions({ city, keyLocations, limit }) {
       cuisine: 'cafetería',
       mealTypes: ['desayuno', 'cafe', 'merienda'],
       why: 'Ideal para una pausa breve.',
+      estimatedCost: 8,
     },
   ];
 

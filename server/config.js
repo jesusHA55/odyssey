@@ -45,6 +45,7 @@ export const config = {
     mealMinutes: num(process.env.DEFAULT_MEAL_MINUTES, 60),
     travelBufferMinutes: num(process.env.TRAVEL_BUFFER_MINUTES, 5),
     maxExtraStops: num(process.env.MAX_EXTRA_STOPS, 5),
+    maxDistanceMeters: num(process.env.MAX_DISTANCE_METERS, 600000),
   },
 };
 

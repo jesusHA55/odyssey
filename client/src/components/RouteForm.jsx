@@ -49,6 +49,8 @@ function exampleForm() {
     city: 'Madrid',
     pace: 'normal',
     interests: 'arte, tapas',
+    maxDistanceMeters: '5000',
+    foodBudget: '60',
     keyLocations: [{ id: nextId(), value: 'Museo del Prado' }, { id: nextId(), value: 'Parque del Retiro' }],
     meals: [{ id: nextId(), type: 'almuerzo', time: todayAt(13, 0) }],
   };
@@ -64,6 +66,8 @@ export default function RouteForm({ onSubmit, loading }) {
   const [city, setCity] = useState(initial.city);
   const [pace, setPace] = useState(initial.pace);
   const [interests, setInterests] = useState(initial.interests);
+  const [maxDistanceMeters, setMaxDistanceMeters] = useState(initial.maxDistanceMeters);
+  const [foodBudget, setFoodBudget] = useState(initial.foodBudget);
   const [keyLocations, setKeyLocations] = useState(initial.keyLocations);
   const [meals, setMeals] = useState(initial.meals);
   const [localError, setLocalError] = useState('');
@@ -103,6 +107,8 @@ export default function RouteForm({ onSubmit, loading }) {
     setCity(sample.city);
     setPace(sample.pace);
     setInterests(sample.interests);
+    setMaxDistanceMeters(sample.maxDistanceMeters);
+    setFoodBudget(sample.foodBudget);
     setKeyLocations(sample.keyLocations);
     setMeals(sample.meals);
     setLocalError('');
@@ -131,6 +137,9 @@ export default function RouteForm({ onSubmit, loading }) {
 
     setLocalError('');
 
+    const parsedMaxDistance = Number(maxDistanceMeters);
+    const parsedFoodBudget = Number(foodBudget);
+
     onSubmit({
       start: { time: startIso, location: startLocation.trim() },
       end: { time: endIso, location: endLocation.trim() },
@@ -145,6 +154,10 @@ export default function RouteForm({ onSubmit, loading }) {
           .split(',')
           .map((item) => item.trim())
           .filter(Boolean),
+        maxDistanceMeters:
+          Number.isFinite(parsedMaxDistance) && parsedMaxDistance > 0 ? parsedMaxDistance : undefined,
+        foodBudget:
+          Number.isFinite(parsedFoodBudget) && parsedFoodBudget >= 0 ? parsedFoodBudget : undefined,
       },
     });
   }
@@ -266,6 +279,28 @@ export default function RouteForm({ onSubmit, loading }) {
             value={interests}
             placeholder="arte, tapas, arquitectura"
             onChange={(e) => setInterests(e.target.value)}
+          />
+        </label>
+
+        <label className="field">
+          <span>Distancia máxima entre paradas (m)</span>
+          <input
+            type="number"
+            min="0"
+            step="100"
+            value={maxDistanceMeters}
+            onChange={(e) => setMaxDistanceMeters(e.target.value)}
+          />
+        </label>
+
+        <label className="field">
+          <span>Presupuesto para comidas (€)</span>
+          <input
+            type="number"
+            min="0"
+            step="5"
+            value={foodBudget}
+            onChange={(e) => setFoodBudget(e.target.value)}
           />
         </label>
       </fieldset>

@@ -48,15 +48,18 @@ export async function buildItinerary({
   restaurants,
   meals,
   warnings,
+  maxDistanceMeters,
+  foodBudget,
 }) {
   const windowStart = new Date(start.time).getTime();
   const windowEnd = new Date(end.time).getTime();
 
-  const orderedStops = await orderStops({
-    start,
-    candidates: [...requiredStops, ...optionalStops],
-    windowStart,
-  });
+  const orderedRequired = await orderStops({ start, candidates: requiredStops, windowStart });
+  const lastRequired = orderedRequired.length
+    ? orderedRequired[orderedRequired.length - 1]
+    : start;
+  const orderedOptional = await orderStops({ start: lastRequired, candidates: optionalStops, windowStart });
+  const orderedStops = [...orderedRequired, ...orderedOptional];
 
   const queue = [...orderedStops];
   const pendingMeals = [...meals]
@@ -84,6 +87,7 @@ export async function buildItinerary({
   const mealsResult = [];
   const omitted = [];
 
+  let remainingFoodBudget = foodBudget;
   let time = windowStart;
   let current = { lat: start.lat, lng: start.lng, name: start.location };
   let guard = queue.length + pendingMeals.length + 10;
@@ -95,6 +99,23 @@ export async function buildItinerary({
     const meal = pendingMeals[0];
 
     const stopTravel = stop ? await travel(current, stop) : null;
+
+    // Control de distancia máxima entre paradas consecutivas.
+    if (stop && maxDistanceMeters && stopTravel.meters > maxDistanceMeters) {
+      if (stop.required) {
+        warnings.push(
+          `La parada obligatoria "${stop.name}" está a ${Math.round(stopTravel.meters)} m, superior al máximo de ${maxDistanceMeters} m; se incluye igualmente.`,
+        );
+      } else {
+        omitted.push(stop.name);
+        warnings.push(
+          `Se omite "${stop.name}" por exceder la distancia máxima de ${maxDistanceMeters} m (${Math.round(stopTravel.meters)} m).`,
+        );
+        queue.shift();
+        continue;
+      }
+    }
+
     const arrivalStop = stop ? time + stopTravel.minutes * MINUTE : Infinity;
     const departStop = stop ? arrivalStop + (stop.visitMinutes ?? 60) * MINUTE : Infinity;
 
@@ -102,14 +123,38 @@ export async function buildItinerary({
     const mealFirst = Boolean(meal) && (!stop || departStop > meal.ts);
 
     if (mealFirst) {
+      let mealCandidates = restaurants;
+
+      if (remainingFoodBudget !== undefined && remainingFoodBudget !== null && remainingFoodBudget >= 0) {
+        const affordable = restaurants.filter(
+          (r) =>
+            r.estimatedCost !== null &&
+            r.estimatedCost !== undefined &&
+            r.estimatedCost <= remainingFoodBudget,
+        );
+
+        if (affordable.length > 0) {
+          mealCandidates = affordable;
+        } else if (restaurants.length > 0) {
+          const cheapest = [...restaurants].sort(
+            (a, b) => (a.estimatedCost ?? Infinity) - (b.estimatedCost ?? Infinity),
+          )[0];
+          warnings.push(
+            `Ningún restaurante recomendado cabe en el presupuesto restante de ${remainingFoodBudget} €; se elige el más barato.`,
+          );
+          mealCandidates = [cheapest];
+        }
+      }
+
       const restaurant =
-        findNearbyRestaurant(current, restaurants, meal.type) || {
+        findNearbyRestaurant(current, mealCandidates, meal.type) || {
           name: `Restaurante cerca de ${current.name}`,
           address: current.name,
           cuisine: 'cocina local',
           lat: current.lat,
           lng: current.lng,
           source: 'estimado',
+          estimatedCost: null,
         };
 
       const legToMeal = await travel(current, restaurant);
@@ -133,6 +178,7 @@ export async function buildItinerary({
           lng: restaurant.lng,
           inRoute: false,
           note: 'Fuera de la ventana de la ruta',
+          estimatedCost: restaurant.estimatedCost ?? null,
         });
         pendingMeals.shift();
         continue;
@@ -152,7 +198,17 @@ export async function buildItinerary({
         inRoute: true,
         onSchedule: Math.abs(deviationMinutes) <= 45,
         deviationMinutes,
+        estimatedCost: restaurant.estimatedCost ?? null,
       });
+
+      if (
+        restaurant.estimatedCost !== null &&
+        restaurant.estimatedCost !== undefined &&
+        remainingFoodBudget !== undefined &&
+        remainingFoodBudget !== null
+      ) {
+        remainingFoodBudget = Math.max(0, remainingFoodBudget - restaurant.estimatedCost);
+      }
 
       if (Math.abs(deviationMinutes) > 45) {
         warnings.push(
@@ -187,11 +243,14 @@ export async function buildItinerary({
         departStop <= windowEnd && departStop + legToEnd.minutes * MINUTE <= windowEnd;
 
       if (!fitsWindow) {
+        if (stop.required) {
+          throw new Error(
+            `No se pueden incluir todas las paradas obligatorias. "${stop.name}" no cabe en la ventana de tiempo.`,
+          );
+        }
         omitted.push(stop.name);
         warnings.push(
-          `No hay tiempo suficiente para incluir "${stop.name}"${
-            stop.required ? ' (parada obligatoria)' : ''
-          }; se ha omitido.`,
+          `No hay tiempo suficiente para incluir "${stop.name}"; se ha omitido.`,
         );
         queue.shift();
         continue;

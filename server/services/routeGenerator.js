@@ -120,6 +120,8 @@ export async function generateRoute(input) {
     restaurants,
     meals,
     warnings,
+    maxDistanceMeters: preferences.maxDistanceMeters ?? config.defaults.maxDistanceMeters,
+    foodBudget: preferences.foodBudget,
   });
 
   const visitedNames = new Set(

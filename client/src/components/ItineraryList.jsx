@@ -5,6 +5,11 @@ function formatTime(value) {
   return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
 }
 
+function formatCost(value) {
+  if (value === null || value === undefined || !Number.isFinite(Number(value))) return null;
+  return `${Number(value)} €`;
+}
+
 const TYPE_LABELS = {
   start: 'Inicio',
   stop: 'Visita',
@@ -68,6 +73,7 @@ export default function ItineraryList({ route, meals, recommendations }) {
                 <p>
                   {meal.type} · solicitada a las {formatTime(meal.requestedTime)}
                   {meal.inRoute && !meal.onSchedule && ` · desviación ${meal.deviationMinutes} min`}
+                  {formatCost(meal.estimatedCost) ? ` · coste aprox. ${formatCost(meal.estimatedCost)}` : ''}
                 </p>
                 {meal.restaurantAddress && <p className="card__muted">{meal.restaurantAddress}</p>}
                 {meal.note && <p className="card__muted">{meal.note}</p>}

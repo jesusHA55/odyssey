@@ -84,6 +84,16 @@ function normalizePreferences(raw, errors) {
       .slice(0, 8);
   }
 
+  if (raw.maxDistanceMeters !== undefined) {
+    const value = Number(raw.maxDistanceMeters);
+    if (Number.isFinite(value) && value > 0) preferences.maxDistanceMeters = value;
+  }
+
+  if (raw.foodBudget !== undefined) {
+    const value = Number(raw.foodBudget);
+    if (Number.isFinite(value) && value >= 0) preferences.foodBudget = value;
+  }
+
   return preferences;
 }
 

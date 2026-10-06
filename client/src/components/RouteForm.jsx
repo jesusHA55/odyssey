@@ -1,5 +1,7 @@
 import { useState } from 'react';
 
+import AutocompleteInput from './AutocompleteInput.jsx';
+
 const MEAL_OPTIONS = [
   { value: 'desayuno', label: 'Desayuno' },
   { value: 'almuerzo', label: 'Almuerzo' },
@@ -174,11 +176,10 @@ export default function RouteForm({ onSubmit, loading }) {
 
         <label className="field">
           <span>Lugar de inicio</span>
-          <input
-            type="text"
+          <AutocompleteInput
             value={startLocation}
+            onChange={setStartLocation}
             placeholder="Plaza Mayor, Madrid"
-            onChange={(e) => setStartLocation(e.target.value)}
           />
         </label>
 
@@ -189,11 +190,10 @@ export default function RouteForm({ onSubmit, loading }) {
 
         <label className="field">
           <span>Lugar de fin</span>
-          <input
-            type="text"
+          <AutocompleteInput
             value={endLocation}
+            onChange={setEndLocation}
             placeholder="Estación de Atocha, Madrid"
-            onChange={(e) => setEndLocation(e.target.value)}
           />
         </label>
       </fieldset>
@@ -203,11 +203,10 @@ export default function RouteForm({ onSubmit, loading }) {
 
         {keyLocations.map((item, index) => (
           <div className="row" key={item.id}>
-            <input
-              type="text"
+            <AutocompleteInput
               value={item.value}
+              onChange={(newValue) => updateKeyLocation(item.id, newValue)}
               placeholder={`Parada obligatoria ${index + 1}`}
-              onChange={(e) => updateKeyLocation(item.id, e.target.value)}
             />
             <button type="button" className="btn btn--ghost" onClick={() => removeKeyLocation(item.id)}>
               Quitar

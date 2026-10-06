@@ -3,6 +3,7 @@ import cors from 'cors';
 
 import { config, mockFlags } from './config.js';
 import routeRouter from './routes/route.js';
+import geocodeRouter from './routes/geocode.js';
 
 const app = express();
 
@@ -18,6 +19,7 @@ app.get('/api/health', (req, res) => {
 });
 
 app.use('/api/route', routeRouter);
+app.use('/api/geocode', geocodeRouter);
 
 app.use((req, res) => {
   res.status(404).json({ error: { message: `Ruta no encontrada: ${req.method} ${req.originalUrl}` } });

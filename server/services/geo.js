@@ -62,50 +62,19 @@ async function fetchJson(url, options = {}) {
 }
 
 async function geocodeWithProvider(query) {
-  const key = config.maps.apiKey;
+  const url = `${config.maps.baseUrl}/geocode/search?text=${encodeURIComponent(
+    query,
+  )}&apiKey=${encodeURIComponent(config.maps.apiKey)}&format=json&limit=1`;
 
-  if (config.maps.provider === 'mapbox') {
-    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(
-      query,
-    )}.json?limit=1&language=es&access_token=${key}`;
-    const data = await fetchJson(url);
-    const feature = data?.features?.[0];
-    if (!feature) throw new Error('Sin resultados de geocodificación.');
-    return {
-      lat: feature.center[1],
-      lng: feature.center[0],
-      label: feature.place_name || query,
-      source: 'mapbox',
-    };
-  }
-
-  if (config.maps.provider === 'google') {
-    const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
-      query,
-    )}&language=es&key=${key}`;
-    const data = await fetchJson(url);
-    const result = data?.results?.[0];
-    if (!result) throw new Error('Sin resultados de geocodificación.');
-    return {
-      lat: result.geometry.location.lat,
-      lng: result.geometry.location.lng,
-      label: result.formatted_address || query,
-      source: 'google',
-    };
-  }
-
-  // openrouteservice (Pelias) por defecto
-  const url = `${config.maps.baseUrl}/geocode/search?api_key=${encodeURIComponent(
-    key,
-  )}&size=1&text=${encodeURIComponent(query)}`;
   const data = await fetchJson(url);
-  const feature = data?.features?.[0];
+  const feature = data?.results?.[0];
   if (!feature) throw new Error('Sin resultados de geocodificación.');
+
   return {
-    lat: feature.geometry.coordinates[1],
-    lng: feature.geometry.coordinates[0],
-    label: feature.properties?.label || query,
-    source: 'openrouteservice',
+    lat: feature.lat,
+    lng: feature.lon,
+    label: feature.formatted || query,
+    source: 'geoapify',
   };
 }
 
@@ -132,78 +101,70 @@ export async function geocode(query) {
   return result;
 }
 
-function estimateTravel(origin, destination) {
+function estimateTravel(origin, destination, mode = 'walk') {
   const km = haversineKm(origin, destination);
-  const speedKmh = 18;
+
+  const speedByMode = {
+    walk: 5,
+    transit: 30,
+    drive: 40,
+    bicycle: 15,
+  };
+  const speedKmh = speedByMode[mode] || 5;
+
   const minutes = Math.max(4, (km / speedKmh) * 60);
-  return { minutes, meters: Math.round(km * 1000), source: 'estimado' };
+
+  return {
+    minutes,
+    meters: Math.round(km * 1000),
+    source: 'estimado',
+    mode,
+  };
 }
 
-async function travelWithProvider(origin, destination) {
-  if (config.maps.provider === 'mapbox') {
-    const coords = `${origin.lng},${origin.lat};${destination.lng},${destination.lat}`;
-    const url = `https://api.mapbox.com/directions/v5/mapbox/driving-traffic/${coords}?access_token=${config.maps.apiKey}&overview=false`;
-    const data = await fetchJson(url);
-    const route = data?.routes?.[0];
-    if (!route) throw new Error('Sin rutas en la respuesta.');
-    return { minutes: route.duration / 60, meters: route.distance, source: 'mapbox' };
-  }
+async function travelWithProvider(origin, destination, mode = 'walk') {
+  const providerMode = mode === 'transit' ? 'drive' : mode;
 
-  if (config.maps.provider === 'google') {
-    const url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${origin.lat},${origin.lng}&destinations=${destination.lat},${destination.lng}&mode=driving&language=es&key=${config.maps.apiKey}`;
-    const data = await fetchJson(url);
-    const element = data?.rows?.[0]?.elements?.[0];
-    if (!element || element.status !== 'OK') throw new Error('Sin matriz de distancias válida.');
-    return {
-      minutes: element.duration.value / 60,
-      meters: element.distance.value,
-      source: 'google',
-    };
-  }
+  const waypoints = `${origin.lat},${origin.lng}|${destination.lat},${destination.lng}`;
+  const url = `${config.maps.baseUrl}/routing?waypoints=${encodeURIComponent(
+    waypoints,
+  )}&mode=${encodeURIComponent(providerMode)}&apiKey=${encodeURIComponent(
+    config.maps.apiKey,
+  )}`;
 
-  const response = await fetch(`${config.maps.baseUrl}/v2/directions/driving-car`, {
-    method: 'POST',
-    headers: {
-      Authorization: config.maps.apiKey,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      coordinates: [
-        [origin.lng, origin.lat],
-        [destination.lng, destination.lat],
-      ],
-    }),
-    signal: AbortSignal.timeout(config.maps.timeoutMs),
-  });
+  const data = await fetchJson(url);
+  const feature = data?.features?.[0];
+  if (!feature) throw new Error('Sin rutas en la respuesta.');
 
-  if (!response.ok) {
-    const text = await response.text().catch(() => '');
-    throw new Error(`HTTP ${response.status} ${text.slice(0, 180)}`);
-  }
-
-  const data = await response.json();
-  const summary = data?.routes?.[0]?.summary;
-  if (!summary) throw new Error('Respuesta sin rutas.');
-  return { minutes: summary.duration / 60, meters: summary.distance, source: 'openrouteservice' };
+  return {
+    minutes: feature.properties.time / 60,
+    meters: feature.properties.distance,
+    source: 'geoapify',
+    mode,
+  };
 }
 
-export async function getTravelTime(origin, destination) {
+export async function getTravelTime(origin, destination, mode = 'walk') {
   if (!origin || !destination) {
-    return { minutes: 0, meters: 0, source: 'no-disponible' };
+    return { minutes: 0, meters: 0, source: 'no-disponible', mode };
   }
 
-  const cacheKey = `${round(origin.lat, 4)},${round(origin.lng, 4)}|${round(destination.lat, 4)},${round(destination.lng, 4)}`;
+  const cacheKey = `${mode}|${round(origin.lat, 4)},${round(origin.lng, 4)}|${round(
+    destination.lat,
+    4,
+  )},${round(destination.lng, 4)}`;
+
   if (travelCache.has(cacheKey)) return travelCache.get(cacheKey);
 
   let base;
   if (isMockMaps()) {
-    base = estimateTravel(origin, destination);
+    base = estimateTravel(origin, destination, mode);
   } else {
     try {
-      base = await travelWithProvider(origin, destination);
+      base = await travelWithProvider(origin, destination, mode);
     } catch (error) {
       console.warn(`[geo] Cálculo de ruta fallido: ${error.message}. Se usa estimación.`);
-      base = estimateTravel(origin, destination);
+      base = estimateTravel(origin, destination, mode);
     }
   }
 
@@ -211,6 +172,7 @@ export async function getTravelTime(origin, destination) {
     minutes: Math.max(1, Math.round(base.minutes) + config.defaults.travelBufferMinutes),
     meters: base.meters,
     source: base.source,
+    mode: base.mode || mode,
   };
 
   travelCache.set(cacheKey, result);
@@ -241,38 +203,25 @@ export async function suggestAddresses(query, limit = 5) {
   const size = Math.min(Math.max(Number(limit) || 5, 1), 10);
 
   if (isMockMaps()) {
-    // En modo mock devuelve un par de sugerencias deterministas para no romper la UI.
     return [
       { label: `${text} (centro)`, lat: config.maps.mockCenter.lat, lng: config.maps.mockCenter.lng },
       { label: `${text} (norte)`, lat: config.maps.mockCenter.lat + 0.02, lng: config.maps.mockCenter.lng },
     ];
   }
 
-  if (config.maps.provider === 'google' || config.maps.provider === 'mapbox') {
-    // Si usas Google/Mapbox, puedes implementar aquí su endpoint de autocompletado.
-    // Por ahora delegamos en el endpoint de búsqueda devolviendo un único resultado.
-    try {
-      const point = await geocodeWithProvider(text);
-      return [{ label: point.label, lat: point.lat, lng: point.lng }];
-    } catch {
-      return [];
-    }
-  }
-
-  // openrouteservice (Pelias): endpoint de autocompletado
-  const url = `${config.maps.baseUrl}/geocode/autocomplete?api_key=${encodeURIComponent(
-    config.maps.apiKey,
-  )}&text=${encodeURIComponent(text)}&size=${size}`;
+  const url = `${config.maps.baseUrl}/geocode/autocomplete?text=${encodeURIComponent(
+    text,
+  )}&apiKey=${encodeURIComponent(config.maps.apiKey)}&format=json&limit=${size}`;
 
   const data = await fetchJson(url);
-  const features = data?.features || [];
+  const results = data?.results || [];
 
-  return features
-    .filter((feat) => feat?.geometry?.coordinates)
-    .map((feat) => ({
-      label: feat.properties?.label || text,
-      lat: feat.geometry.coordinates[1],
-      lng: feat.geometry.coordinates[0],
+  return results
+    .filter((item) => Number.isFinite(item.lat) && Number.isFinite(item.lon))
+    .map((item) => ({
+      label: item.formatted || text,
+      lat: item.lat,
+      lng: item.lon,
     }))
     .slice(0, size);
 }

@@ -17,6 +17,12 @@ const PACE_OPTIONS = [
   { value: 'intenso', label: 'Intenso' },
 ];
 
+const TRANSPORT_OPTIONS = [
+  { value: 'walking', label: 'A pie' },
+  { value: 'transit', label: 'Transporte público' },
+  { value: 'mixed', label: 'Mixto (caminar y transporte público)' },
+];
+
 let counter = 0;
 const nextId = () => {
   counter += 1;
@@ -70,6 +76,7 @@ export default function RouteForm({ onSubmit, loading }) {
   const [interests, setInterests] = useState(initial.interests);
   const [maxDistanceMeters, setMaxDistanceMeters] = useState(initial.maxDistanceMeters);
   const [foodBudget, setFoodBudget] = useState(initial.foodBudget);
+  const [transportMode, setTransportMode] = useState('walking');
   const [keyLocations, setKeyLocations] = useState(initial.keyLocations);
   const [meals, setMeals] = useState(initial.meals);
   const [localError, setLocalError] = useState('');
@@ -111,6 +118,7 @@ export default function RouteForm({ onSubmit, loading }) {
     setInterests(sample.interests);
     setMaxDistanceMeters(sample.maxDistanceMeters);
     setFoodBudget(sample.foodBudget);
+    setTransportMode('walking');
     setKeyLocations(sample.keyLocations);
     setMeals(sample.meals);
     setLocalError('');
@@ -152,6 +160,7 @@ export default function RouteForm({ onSubmit, loading }) {
       preferences: {
         city: city.trim() || undefined,
         pace,
+        transportMode,
         interests: interests
           .split(',')
           .map((item) => item.trim())
@@ -264,6 +273,17 @@ export default function RouteForm({ onSubmit, loading }) {
           <span>Ritmo</span>
           <select value={pace} onChange={(e) => setPace(e.target.value)}>
             {PACE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="field">
+          <span>Modo de desplazamiento</span>
+          <select value={transportMode} onChange={(e) => setTransportMode(e.target.value)}>
+            {TRANSPORT_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>

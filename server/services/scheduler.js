@@ -1,4 +1,4 @@
-import { getTravelTime, findNearbyRestaurant } from './geo.js';
+import { getTravelTime, findNearbyRestaurant, haversineKm } from './geo.js';
 
 const MINUTE = 60000;
 
@@ -6,15 +6,27 @@ function iso(ms) {
   return new Date(ms).toISOString();
 }
 
-async function travel(from, to) {
-  if (!from || !to || !Number.isFinite(from.lat) || !Number.isFinite(to.lat)) {
-    return { minutes: 0, meters: 0, source: 'no-disponible' };
+function resolveTravelMode(from, to, preference) {
+  if (preference === 'walking') return 'walk';
+  if (preference === 'transit') return 'transit';
+  if (preference === 'mixed') {
+    const km = haversineKm(from, to);
+    return km > 1.2 ? 'transit' : 'walk';
   }
-  return getTravelTime(from, to);
+  return 'walk';
+}
+
+async function travel(from, to, transportMode = 'walking') {
+  if (!from || !to || !Number.isFinite(from.lat) || !Number.isFinite(to.lat)) {
+    return { minutes: 0, meters: 0, source: 'no-disponible', mode: 'walking' };
+  }
+
+  const resolvedMode = resolveTravelMode(from, to, transportMode);
+  return getTravelTime(from, to, resolvedMode);
 }
 
 // Orden voraz tipo "vecino más cercano" con un pequeño sesgo hacia las paradas obligatorias.
-async function orderStops({ start, candidates, windowStart }) {
+async function orderStops({ start, candidates, windowStart, transportMode = 'walking' }) {
   const remaining = candidates.filter(
     (item) => item && Number.isFinite(item.lat) && Number.isFinite(item.lng),
   );
@@ -25,7 +37,7 @@ async function orderStops({ start, candidates, windowStart }) {
   while (remaining.length) {
     const scored = [];
     for (const candidate of remaining) {
-      const leg = await travel(current, candidate);
+      const leg = await travel(current, candidate, transportMode);
       scored.push({ candidate, score: leg.minutes + (candidate.required ? 0 : 5) });
     }
     scored.sort((a, b) => a.score - b.score);
@@ -50,15 +62,26 @@ export async function buildItinerary({
   warnings,
   maxDistanceMeters,
   foodBudget,
+  transportMode = 'walking',
 }) {
   const windowStart = new Date(start.time).getTime();
   const windowEnd = new Date(end.time).getTime();
 
-  const orderedRequired = await orderStops({ start, candidates: requiredStops, windowStart });
+  const orderedRequired = await orderStops({
+    start,
+    candidates: requiredStops,
+    windowStart,
+    transportMode,
+  });
   const lastRequired = orderedRequired.length
     ? orderedRequired[orderedRequired.length - 1]
     : start;
-  const orderedOptional = await orderStops({ start: lastRequired, candidates: optionalStops, windowStart });
+  const orderedOptional = await orderStops({
+    start: lastRequired,
+    candidates: optionalStops,
+    windowStart,
+    transportMode,
+  });
   const orderedStops = [...orderedRequired, ...orderedOptional];
 
   const queue = [...orderedStops];
@@ -81,6 +104,7 @@ export async function buildItinerary({
       activity: 'Punto de partida',
       category: 'inicio',
       required: true,
+      transportMode: null,
     },
   ];
 
@@ -98,7 +122,7 @@ export async function buildItinerary({
     const stop = queue[0];
     const meal = pendingMeals[0];
 
-    const stopTravel = stop ? await travel(current, stop) : null;
+    const stopTravel = stop ? await travel(current, stop, transportMode) : null;
 
     // Control de distancia máxima entre paradas consecutivas.
     if (stop && maxDistanceMeters && stopTravel.meters > maxDistanceMeters) {
@@ -157,11 +181,11 @@ export async function buildItinerary({
           estimatedCost: null,
         };
 
-      const legToMeal = await travel(current, restaurant);
+      const legToMeal = await travel(current, restaurant, transportMode);
       const arrivalMeal = time + legToMeal.minutes * MINUTE;
       const startMeal = Math.max(arrivalMeal, meal.ts);
       const endMeal = startMeal + meal.durationMinutes * MINUTE;
-      const legFromMealToEnd = await travel(restaurant, end);
+      const legFromMealToEnd = await travel(restaurant, end, transportMode);
 
       if (endMeal + legFromMealToEnd.minutes * MINUTE > windowEnd) {
         warnings.push(
@@ -229,6 +253,7 @@ export async function buildItinerary({
         activity: `Comida (${meal.type})`,
         category: 'restaurante',
         required: true,
+        transportMode: legToMeal.mode,
       });
 
       time = endMeal;
@@ -238,7 +263,7 @@ export async function buildItinerary({
     }
 
     if (stop) {
-      const legToEnd = await travel(stop, end);
+      const legToEnd = await travel(stop, end, transportMode);
       const fitsWindow =
         departStop <= windowEnd && departStop + legToEnd.minutes * MINUTE <= windowEnd;
 
@@ -270,6 +295,7 @@ export async function buildItinerary({
         category: stop.category || 'interés',
         why: stop.why || '',
         required: Boolean(stop.required),
+        transportMode: stopTravel.mode,
       });
 
       time = departStop;
@@ -281,7 +307,7 @@ export async function buildItinerary({
     break;
   }
 
-  const legToEnd = await travel(current, end);
+  const legToEnd = await travel(current, end, transportMode);
   const arrivalEnd = Math.min(time + legToEnd.minutes * MINUTE, windowEnd);
 
   route.push({
@@ -298,6 +324,7 @@ export async function buildItinerary({
     category: 'fin',
     required: true,
     freeMinutes: Math.max(0, Math.round((windowEnd - arrivalEnd) / MINUTE)),
+    transportMode: legToEnd.mode,
   });
 
   const totals = {

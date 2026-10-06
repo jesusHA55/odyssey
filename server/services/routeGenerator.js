@@ -122,6 +122,7 @@ export async function generateRoute(input) {
     warnings,
     maxDistanceMeters: preferences.maxDistanceMeters ?? config.defaults.maxDistanceMeters,
     foodBudget: preferences.foodBudget,
+    transportMode: preferences.transportMode || 'walking',
   });
 
   const visitedNames = new Set(

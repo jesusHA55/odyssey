@@ -86,6 +86,9 @@ export default function RouteMap({ route }) {
         point.address ? escapeHtml(point.address) : '',
         `${formatTime(point.arrival)} - ${formatTime(point.departure)}`,
         point.activity ? escapeHtml(point.activity) : '',
+        point.transportMode
+          ? `Traslado: ${point.transportMode === 'transit' ? 'transporte público' : point.transportMode === 'walk' ? 'a pie' : point.transportMode}`
+          : '',
       ]
         .filter(Boolean)
         .join('<br/>');

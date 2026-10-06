@@ -24,14 +24,11 @@ export const config = {
   },
 
   maps: {
-    apiKey: str(
-      process.env.MAPS_API_KEY,
-      "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjEwZGZiMTBhNTcwYjRkZmQ4MTYyNzE2MjBlYWZhZjFjIiwiaCI6Im11cm11cjY0In0=",
-    ),
-    provider: str(process.env.MAPS_PROVIDER, "openrouteservice").toLowerCase(),
+    apiKey: str(process.env.MAPS_API_KEY, ""),
+    provider: str(process.env.MAPS_PROVIDER, "geoapify").toLowerCase(),
     baseUrl: str(
       process.env.MAPS_BASE_URL,
-      "https://api.openrouteservice.org",
+      "https://api.geoapify.com/v1",
     ).replace(/\/+$/, ""),
     timeoutMs: num(process.env.MAPS_TIMEOUT_MS, 15000),
     mockCenter: {

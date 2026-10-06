@@ -130,14 +130,29 @@ select:focus {
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 8px;
+  min-width: 0;
+}
+
+.row > * {
+  min-width: 0;
 }
 
 .row:has(select) {
-  grid-template-columns: 160px 1fr auto;
+  grid-template-columns: minmax(0, 140px) minmax(0, 1fr) auto;
 }
 
 .row:has(select) select {
   width: 100%;
+}
+
+@media (max-width: 640px) {
+  .row:has(select) {
+    grid-template-columns: 1fr;
+  }
+
+  .row:has(select) .btn {
+    justify-self: start;
+  }
 }
 
 .btn {

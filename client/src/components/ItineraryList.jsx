@@ -10,6 +10,12 @@ function formatCost(value) {
   return `${Number(value)} €`;
 }
 
+function transportIcon(mode) {
+  if (mode === 'transit') return '🚌';
+  if (mode === 'drive') return '🚗';
+  return '🚶';
+}
+
 const TYPE_LABELS = {
   start: 'Inicio',
   stop: 'Visita',
@@ -45,7 +51,12 @@ export default function ItineraryList({ route, meals, recommendations }) {
                 <p>{item.activity}</p>
                 {item.why && <p className="timeline__why">{item.why}</p>}
                 <div className="timeline__meta">
-                  {item.travelMinutes > 0 && <span>🚗 {item.travelMinutes} min de traslado</span>}
+                  {item.travelMinutes > 0 && (
+                    <span>
+                      {transportIcon(item.transportMode)} {item.travelMinutes} min{' '}
+                      {item.transportMode === 'transit' ? 'transporte público' : 'a pie'}
+                    </span>
+                  )}
                   {item.category && item.type === 'stop' && <span>🏷️ {item.category}</span>}
                   {item.required && item.type === 'stop' && <span>⭐ obligatoria</span>}
                   {typeof item.freeMinutes === 'number' && item.freeMinutes > 15 && (

@@ -209,19 +209,36 @@ export async function suggestAddresses(query, limit = 5) {
     ];
   }
 
-  const url = `${config.maps.baseUrl}/geocode/autocomplete?text=${encodeURIComponent(
-    text,
-  )}&apiKey=${encodeURIComponent(config.maps.apiKey)}&format=json&limit=${size}`;
+  try {
+    const url = `${config.maps.baseUrl}/geocode/autocomplete?text=${encodeURIComponent(
+      text,
+    )}&apiKey=${encodeURIComponent(config.maps.apiKey)}&format=json&limit=${size}`;
 
-  const data = await fetchJson(url);
-  const results = data?.results || [];
+    const data = await fetchJson(url);
+    const results = data?.results || [];
 
-  return results
-    .filter((item) => Number.isFinite(item.lat) && Number.isFinite(item.lon))
-    .map((item) => ({
-      label: item.formatted || text,
-      lat: item.lat,
-      lng: item.lon,
-    }))
-    .slice(0, size);
+    return results
+      .filter((item) => Number.isFinite(item.lat) && Number.isFinite(item.lon))
+      .map((item) => ({
+        label: item.formatted || text,
+        lat: item.lat,
+        lng: item.lon,
+      }))
+      .slice(0, size);
+  } catch (error) {
+    console.warn(`[geo] Autocompletado fallido para "${text}": ${error.message}. Se usarán sugerencias simuladas.`);
+
+    return [
+      {
+        label: `${text} (centro)`,
+        lat: config.maps.mockCenter.lat,
+        lng: config.maps.mockCenter.lng,
+      },
+      {
+        label: `${text} (norte)`,
+        lat: config.maps.mockCenter.lat + 0.02,
+        lng: config.maps.mockCenter.lng,
+      },
+    ].slice(0, size);
+  }
 }

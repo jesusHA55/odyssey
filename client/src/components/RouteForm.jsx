@@ -208,7 +208,7 @@ export default function RouteForm({ onSubmit, loading }) {
       </fieldset>
 
       <fieldset className="form__group">
-        <legend>Ubicaciones clave obligatorias</legend>
+        <legend>Ubicaciones clave obligatorias ({keyLocations.length}/10)</legend>
 
         {keyLocations.map((item, index) => (
           <div className="row" key={item.id}>

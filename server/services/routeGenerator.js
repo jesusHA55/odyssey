@@ -112,6 +112,10 @@ export async function generateRoute(input) {
     restaurants.push({ ...restaurant, lat: point.lat, lng: point.lng, address: restaurant.address || point.label });
   }
 
+  console.log(
+    `[routeGenerator] keyLocations recibidas: ${keyLocations.length}. OptionalStops: ${optionalStops.length}.`,
+  );
+
   const itinerary = await buildItinerary({
     start: { ...startPoint, time: start.time, location: start.location },
     end: { ...endPoint, time: end.time, location: end.location },

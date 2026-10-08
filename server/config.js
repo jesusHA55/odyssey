@@ -46,6 +46,19 @@ export const config = {
   },
 };
 
+// Este proyecto solo admite Geoapify como proveedor de mapas.
+// Si se configura OpenRouteService (u otro proveedor) por error, fallamos
+// al arrancar con un mensaje claro en lugar de provocar errores 401/404
+// confusos en tiempo de ejecución (p. ej. "authorization field missing").
+if (
+  config.maps.provider !== "geoapify" ||
+  /openrouteservice/i.test(config.maps.baseUrl)
+) {
+  throw new Error(
+    "Configuración de mapas no soportada: este proyecto solo admite Geoapify. Revisa MAPS_PROVIDER y MAPS_BASE_URL en server/.env.",
+  );
+}
+
 export function mockFlags() {
   return {
     llm: !config.llm.apiKey,
